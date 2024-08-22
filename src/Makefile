@@ -1,14 +1,18 @@
-BIN=template-go
+BIN_DIR = bin
+SRC = main.go
+TARGET = ../${BIN_DIR}/template-go
+
+GO = go build -o
 
 build: lint
 	@go mod tidy -v
-	go build -o ../../bin/${BIN} main.go
+	${GO} ${TARGET} ${SRC}
 
 run: build
-	../../bin/${BIN}
+	${TARGET}
 
 lint:
 	golangci-lint run
 
 clean:
-	rm ../../bin/${BIN}
+	rm -f ${TARGET}
