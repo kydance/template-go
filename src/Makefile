@@ -1,7 +1,7 @@
 BIN_DIR = bin
+BIN = template-go
+TARGET = ../${BIN_DIR}/${BIN}
 SRC = main.go
-TARGET = ../${BIN_DIR}/template-go
-
 GO = go build -o
 
 build: lint

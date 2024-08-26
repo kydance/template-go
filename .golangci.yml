@@ -1,0 +1,51 @@
+run:
+    timeout: 5m
+    go: 1.21
+
+linters-settings:
+    funlen:
+        lines: 150
+        statements: 100
+    goconst:
+        min-len: 3
+        min-occurrences: 3
+    lll:
+        line-length: 100
+    govet:
+        shadow: true
+        check-unreachable: true
+        check-rangeloops: true
+        check-copylocks: true
+        enable:
+        - nilness
+
+linters:
+    disable-all: true
+    enable:
+        - bodyclose
+        - errcheck
+        - funlen
+        - goconst
+        - gocyclo
+        - gofmt
+        - goimports
+        - gosimple
+        - govet
+        - ineffassign
+        - lll
+        - misspell
+        - nilerr
+        - rowserrcheck
+        - staticcheck
+        - typecheck
+        - unconvert
+        - unparam
+        - unused
+        - whitespace
+
+issues:
+    skip-dirs:
+        - test
+
+    exclude-files:
+        - _test.go
