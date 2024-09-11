@@ -12,14 +12,14 @@ func NewKyden(name string) *Kyden {
 	return &Kyden{name: name}
 }
 
-func (this *Kyden) Name() string {
-	return this.name
+func (k *Kyden) Name() string {
+	return k.name
 }
 
-func (this *Kyden) Hello() string {
+func (k *Kyden) Hello() string {
 	return "Hello"
 }
 
-func (this *Kyden) Say(str string) string {
-	return fmt.Sprintf("%s %s", this.Hello(), str)
+func (k *Kyden) Say(str string) string {
+	return fmt.Sprintf("%s %s", k.Hello(), str)
 }

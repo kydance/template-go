@@ -1,47 +1,10 @@
 run:
+    concurrency: 8
     timeout: 5m
-    go: 1.21
 
-linters-settings:
-    funlen:
-        lines: 150
-        statements: 100
-    goconst:
-        min-len: 3
-        min-occurrences: 3
-    lll:
-        line-length: 100
-    govet:
-        shadow: true
-        check-unreachable: true
-        check-rangeloops: true
-        check-copylocks: true
-        enable:
-        - nilness
-
-linters:
-    disable-all: true
-    enable:
-        - bodyclose
-        - errcheck
-        - funlen
-        - goconst
-        - gocyclo
-        - gofmt
-        - goimports
-        - gosimple
-        - govet
-        - ineffassign
-        - lll
-        - misspell
-        - nilerr
-        - rowserrcheck
-        - staticcheck
-        - typecheck
-        - unconvert
-        - unparam
-        - unused
-        - whitespace
+    # Allow multiple parallel golangci-lint instances running.
+    # If false (default) - golangci-lint acquires file lock on start.
+    allow-parallel-runners: true
 
 issues:
     skip-dirs:
@@ -49,3 +12,60 @@ issues:
 
     exclude-files:
         - _test.go
+
+linters-settings:
+    errcheck:
+        check-blank: false
+        check-type-assertions: false
+    funlen:
+        lines: 120
+        statements: 60
+    goconst:
+        min-len: 3
+        min-occurrences: 3
+    lll:
+        line-length: 100
+        tab-width: 4
+    misspell:
+        locale: US
+        ignore-words:
+            - importas
+    govet:
+        shadow: true
+        check-unreachable: true
+        check-rangeloops: true
+        check-copylocks: true
+        fieldalignment: true
+        enable:
+            - nilness
+
+linters:
+    disable-all: true
+    enable:
+        - asciicheck
+        - bodyclose
+        - dupl
+        - errcheck
+        - funlen
+        - goconst
+        - gocritic
+        - gocyclo
+        - gofmt
+        - goimports
+        - goprintffuncname
+        - gosec
+        - gosimple
+        - govet
+        - ineffassign
+        - lll
+        - misspell
+        - nilerr
+        - prealloc
+        - rowserrcheck
+        - staticcheck
+        - stylecheck
+        - typecheck
+        - unconvert
+        - unparam
+        - unused
+        - whitespace
