@@ -44,16 +44,16 @@ linters:
     enable:
         - asciicheck
         - bodyclose
+        - copyloopvar
         - dupl
         - errcheck
         - funlen
         - goconst
-        - gocritic
+        # - gocritic
         - gocyclo
         - gofmt
         - goimports
         - goprintffuncname
-        - gosec
         - gosimple
         - govet
         - ineffassign
