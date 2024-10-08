@@ -3,24 +3,21 @@ package main
 import (
 	"fmt"
 	"template-go/pkg/kyden"
-	"template-go/pkg/tmutil"
+	"time"
 )
 
-const s = "Kyden"
+const (
+	errno = -6398
+)
 
 func main() {
-	fmt.Println("This is a Golang Template Project")
+	va := make([]int, 0)
+	fmt.Println(len(va))
 
-	k := kyden.NewKyden(s)
-	k.Say(s)
-	println(k.Hello())
+	fmt.Println(errno)
 
-	fmt.Println(tmutil.CurrDate())
-	fmt.Println(tmutil.CurrMonth())
-	fmt.Println(tmutil.CurrYear())
-	fmt.Println(tmutil.CurrHour())
-	fmt.Println(tmutil.CurrWeek())
-	fmt.Println(tmutil.CurrWeek2())
+	println(time.Now().Format(time.DateTime))
 
-	fmt.Printf("k.Name(): %v\n", k.Name())
+	pk := kyden.NewKyden("k")
+	fmt.Println(pk.Hello())
 }

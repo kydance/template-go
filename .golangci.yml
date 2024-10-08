@@ -1,5 +1,4 @@
 run:
-    concurrency: 8
     timeout: 5m
 
     # Allow multiple parallel golangci-lint instances running.
@@ -49,7 +48,6 @@ linters:
         - errcheck
         - funlen
         - goconst
-        # - gocritic
         - gocyclo
         - gofmt
         - goimports

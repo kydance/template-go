@@ -5,6 +5,7 @@ GOCLEAN := $(GOCMD) clean
 GOTEST := $(GOCMD) test
 GOGET := $(GOCMD) get
 GOMOD := $(GOCMD) mod
+GOFMT := gofmt
 GOLINT := golangci-lint
 
 # Project parameters
@@ -19,11 +20,11 @@ LDFLAGS := -ldflags "-w -s"
 CGO_FLAGS := CGO_ENABLED=1
 
 # Targets
-.PHONY: all clean test lint tidy help $(TARGETS)
+.PHONY: all clean test format lint tidy help $(TARGETS)
 
 # Default target
 all: build
-build: tidy lint test $(TARGETS)
+build: tidy format lint $(TARGETS)
 
 # Build each target
 define build_target
@@ -54,6 +55,10 @@ tidy:
 	@$(GOMOD) tidy
 	@$(GOMOD) verify
 
+format:
+	@echo "Formating Go code..."
+	@find . -name '*.go' | xargs $(GOFMT) -w -s
+
 clean:
 	@echo "Cleaning up ..."
 	@$(GOCLEAN)
@@ -65,6 +70,6 @@ help:
 	@echo "  test        : Run tests"
 	@echo "  lint        : Run golangci-lint"
 	@echo "  tidy        : Tidy and verify go modules"
+	@echo "  format      : Format Go code"
 	@echo "  clean       : Remove object files and binaries"
 	@echo "  help        : Display this help message"
-
