@@ -30,6 +30,7 @@ endif
 CGO_FLAGS := CGO_ENABLED=1 # CGO_CXXFLAGS='-D_GLIBCXX_USE_CXX11_ABI=0'
 
 # Colors for pretty printing
+GREEN := \033[0;32m
 BLUE := \033[0;34m
 NC := \033[0m # No Color
 
@@ -53,7 +54,7 @@ define build_target
 $(BIN_DIR)/$(1): $$(shell find $(CMD_DIR)/$(1) -name '*.go')
 	@printf "$(BLUE)Building $$@...$(NC)\n"
 	@mkdir -p $(BIN_DIR)
-	@$(CGO_FLAGS) $(GOBUILD) -ldflags "$(LDFLAGS)" -o $$@ ./$(CMD_DIR)/$(1)
+	$(CGO_FLAGS) $(GOBUILD) -ldflags "$(LDFLAGS)" -o $$@ ./$(CMD_DIR)/$(1)
 endef
 
 # Generate build rules for each target
@@ -61,7 +62,7 @@ $(foreach target,$(TARGETS),$(eval $(call build_target,$(target))))
 
 # Shortcut targets
 $(TARGETS):
-	@echo "Building with CGO_FLAGS=$(CGO_FLAGS)"
+	@echo "Building with $(GREEN)\n\tCGO_FLAGS=$(CGO_FLAGS)\n\tDEBUG=$(DEBUG)$(NC)"
 	@$(MAKE) $(BIN_DIR)/$@
 
 test:
