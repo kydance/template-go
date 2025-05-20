@@ -23,7 +23,7 @@ linters-settings:
         min-len: 3
         min-occurrences: 3
     lll:
-        line-length: 100
+        line-length: 120
         tab-width: 4
     misspell:
         locale: US

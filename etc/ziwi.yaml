@@ -1,0 +1,16 @@
+log:
+  prefix: "" # Log prefix
+  directory: "./logs"      # Log file directory
+  level: debug # Log level: debug / info / warn / error / dpanic / panic / fatal
+  time-layout: "2006-01-02 15:04:05.000"
+  format: console # Log format: console / json
+
+  disable-caller: false # Disable caller: false / true
+  disable-stacktrace: false # Disable stacktrace: false / true
+  disable-split-error: false # Disable split error: false / true
+
+  # Log rotation settings
+  max-size: 100         # Maximum size of log files in megabytes before rotation
+  max-backups: 3        # Maximum number of old log files to retain
+  compress: false       # Whether to compress rotated log files: false / true
+
