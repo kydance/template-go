@@ -56,5 +56,5 @@ func init() {
 }
 
 func main() {
-	log.Infof("%v", 3*time.Second)
+	fmt.Println(time.Unix(1747970430, 0).Format(time.DateTime))
 }
