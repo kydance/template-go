@@ -2,6 +2,10 @@ version: "2"
 
 linters:
   Default: none
+<<<<<<< HEAD
+=======
+  tests-disable-all: true
+>>>>>>> 3d88baebdfc8f6d13ad1fd7c19ff96482f9f3a22
 
   # Enable specific linter.
   enable:
@@ -41,6 +45,11 @@ linters:
     funlen:
       lines: 150
       statements: 100
+<<<<<<< HEAD
+=======
+    golines:
+      max-line-length: 120
+>>>>>>> 3d88baebdfc8f6d13ad1fd7c19ff96482f9f3a22
     goconst:
       min-len: 5
       min-occurrences: 3
@@ -61,6 +70,10 @@ linters:
         - os.ReadFile  # Replace deprecated io/ioutil.ReadFile
         - io.Copy(*bytes.Buffer)
         - io.Copy(os.Stdout)
+<<<<<<< HEAD
+=======
+        - redis.Conn.(Close)
+>>>>>>> 3d88baebdfc8f6d13ad1fd7c19ff96482f9f3a22
     revive:
       severity: error # warning # error
       enable-all-rules: false
@@ -78,16 +91,23 @@ linters:
         - name: var-naming             # 检查变量命名规范
         - name: unused-parameter       # 建议重命名或删除未使用的函数参数
           arguments:
-            - allow-regex: "^_" # 允许以 `_` 开头的参数不被使用
-        - name: errorf                 # 建议将 `errors.New(fmt.Sprintf())` 替换为 `fmt.Errorf()`
-        - name: time-equal             # 建议使用 `time.Time.Equal` 比较时间
-        - name: redefines-builtin-id   # 警告重新定义内置标识符
+            - allow-regex: "^_"         # 允许以 `_` 开头的参数不被使用
+        - name: errorf                  # 建议将 `errors.New(fmt.Sprintf())` 替换为 `fmt.Errorf()`
+        - name: time-equal              # 建议使用 `time.Time.Equal` 比较时间
+        - name: time-naming             # 检查 `time.Time` 命名规范
+        - name: redefines-builtin-id    # 警告重新定义内置标识符
+        - name: unused-receiver         # 检查未使用的接收器
+        - name: bare-return             # 警告裸返回
+        - name: defer                   # 检查 `defer` 语句
+        - name: early-return            # 检查早期返回
+        - name: optimize-operands-order # 优化操作数顺序
+        - name: receiver-naming         # 检查接收器命名规范
+        - name: use-any                 # 使用 `any` 替代 `interface{}`
 
   # Defines a set of rules to ignore issues.
   # It does not skip the analysis, and so does not ignore "typecheck" errors.
   exclusions:
     # Log a warning if an exclusion rule is unused.
-    # Default: false
     warn-unused: true
     # Excluding configuration per-path, per-linter, per-text and per-source.
     rules:
@@ -95,24 +115,24 @@ linters:
       - path: _test\.go
         linters:
           - all
-
-      # Exclude some `staticcheck` messages.
-      - linters:
-          - staticcheck
-        text: "SA9003:"
-
-      # Exclude `lll` issues for long lines with `go:generate`.
-      - linters:
+          - errcheck
+          - unused
+          - gosec
           - lll
-        source: "^//go:generate "
+          - revive
 
 formatters:
   enable:
     - goimports # Checks if the code and import statements are formatted according to the 'goimports' command.
     - golines # Checks if code is formatted, and fixes long lines.
   settings:
-    golines:
-      max-len: 120 # Target maximum line length.
+    gofmt:
+      simplify: false
+      rewrite-rules:
+        - pattern: interface{}
+          replacement: any
+        - pattern: a[b:len(a)]
+          replacement: a[b:]
 
 run:
   timeout: 5m
