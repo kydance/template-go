@@ -62,7 +62,7 @@ $(foreach target,$(TARGETS),$(eval $(call build_target,$(target))))
 
 # Shortcut targets
 $(TARGETS):
-	@echo "Building with $(GREEN)\n\tCGO_FLAGS=$(CGO_FLAGS)\n\tDEBUG=$(DEBUG)$(NC)"
+	@echo "Building with $(GREEN)DEBUG=$(DEBUG)$(NC)"
 	@$(MAKE) $(BIN_DIR)/$@
 
 test:
