@@ -1,6 +1,6 @@
 log:
   prefix: "" # Log prefix
-  directory: "/Users/kyden/git-space/mcp-svr/logs"      # Log file directory
+  directory: "/Users/kyden/git-space/template-go/logs"      # Log file directory
   level: debug # Log level: debug / info / warn / error / dpanic / panic / fatal
   time-layout: "2006-01-02 15:04:05.000"
   format: console # Log format: console / json

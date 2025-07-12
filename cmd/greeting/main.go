@@ -1,19 +1,16 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/kydance/ziwi/log"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/kydenul/log"
 	"github.com/spf13/viper"
-
-	"template-go/internal/greeting"
 )
+
+var Logger *log.ZiwiLog
 
 const (
 	defaultConfigDir  = "etc"
@@ -46,9 +43,9 @@ func init() {
 		panic(fmt.Sprintf("Failed to read viper config file: %v", err))
 	}
 
-	log.NewLogger(log.NewOptions().
+	Logger = log.NewLogger(log.NewOptions().
 		WithPrefix(viper.GetString("log.prefix")).
-		WithDirectory("log.directory").
+		WithDirectory(viper.GetString("log.directory")).
 		WithLevel(viper.GetString("log.level")).
 		WithTimeLayout(viper.GetString("log.time-layout")).
 		WithFormat(viper.GetString("log.format")).
@@ -61,69 +58,5 @@ func init() {
 }
 
 func main() {
-	// // Profiling
-	// go func() {
-	// 	svr := &http.Server{
-	// 		Addr:              "127.0.0.1:9999",
-	// 		ReadHeaderTimeout: 4 * time.Second,
-	// 		ReadTimeout:       10 * time.Second,
-	// 		WriteTimeout:      10 * time.Second,
-	// 		IdleTimeout:       30 * time.Second,
-	// 		Handler:           nil,
-	// 	}
-	// 	log.Fatalln(svr.ListenAndServe())
-	// }()
-
-	// // Prometheus Metrics
-	// go func() {
-	// 	http.Handle("/metrics", promhttp.Handler())
-
-	// 	svr := &http.Server{
-	// 		Addr:              "0.0.0.0:2112",
-	// 		ReadHeaderTimeout: 4 * time.Second,
-	// 		ReadTimeout:       10 * time.Second,
-	// 		WriteTimeout:      10 * time.Second,
-	// 		IdleTimeout:       30 * time.Second,
-	// 	}
-
-	// 	log.Fatalln(svr.ListenAndServe())
-	// }()
-
-	var transport string
-	flag.StringVar(&transport, "t", "stdio", "Transport type (stdio or sse)")
-	flag.StringVar(&transport, "transport", "stdio", "Transport type (stdio or sse)")
-	flag.Parse()
-
-	// Start the server
-	mcpServer := greeting.NewMCPServer()
-	switch transport {
-	case "stdio":
-		log.Info("Using stdio transport")
-		if err := server.ServeStdio(mcpServer); err != nil {
-			log.Fatalf("Server error: %v", err)
-		}
-
-	case "streamable-http":
-		log.Info("Using Streamable HTTP transport")
-		steamableServer := server.NewStreamableHTTPServer(mcpServer,
-			server.WithEndpointPath("/streamable"),
-			server.WithHeartbeatInterval(5*time.Second),
-			server.WithStateLess(false),
-		)
-		addr := fmt.Sprintf("%s:%d", "127.0.0.1", 5568)
-		if err := steamableServer.Start(addr); err != nil {
-			log.Fatalf("Server error: %v", err)
-		}
-
-	case "sse":
-		log.Info("Using SSE transport")
-		sseServer := server.NewSSEServer(mcpServer, server.WithBaseURL("/sse"))
-		log.Info("SSE server listening on :5568")
-		addr := fmt.Sprintf("%s:%d", "127.0.0.1", 5568)
-		if err := sseServer.Start(addr); err != nil {
-			log.Fatalf("Server error: %v", err)
-		}
-	default:
-		log.Errorf("invalid transport type: %s (must be 'stdio', 'sse' or 'streamable-http')", transport)
-	}
+	Logger.Infoln("Starting greeting server...")
 }

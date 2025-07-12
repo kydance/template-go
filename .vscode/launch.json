@@ -9,7 +9,7 @@
             "type": "go",
             "request": "launch",
             "mode": "exec", // "exec" debug 二进制文件(要先编译)
-            "program": "${workspaceFolder}/bin/template-go",
+            "program": "${workspaceFolder}/bin/greeting",
             "preLaunchTask": "build",
         },
     ]
