@@ -2,7 +2,10 @@ version: "2"
 
 linters:
   Default: none
+<<<<<<< HEAD
+=======
   tests-disable-all: true
+>>>>>>> 3d88baebdfc8f6d13ad1fd7c19ff96482f9f3a22
 
   # Enable specific linter.
   enable:
@@ -42,8 +45,11 @@ linters:
     funlen:
       lines: 150
       statements: 100
+<<<<<<< HEAD
+=======
     golines:
       max-line-length: 120
+>>>>>>> 3d88baebdfc8f6d13ad1fd7c19ff96482f9f3a22
     goconst:
       min-len: 5
       min-occurrences: 3
@@ -64,7 +70,10 @@ linters:
         - os.ReadFile  # Replace deprecated io/ioutil.ReadFile
         - io.Copy(*bytes.Buffer)
         - io.Copy(os.Stdout)
+<<<<<<< HEAD
+=======
         - redis.Conn.(Close)
+>>>>>>> 3d88baebdfc8f6d13ad1fd7c19ff96482f9f3a22
     revive:
       severity: error # warning # error
       enable-all-rules: false
