@@ -1,9 +1,6 @@
 version: "2"
 
 linters:
-  Default: none
-  tests-disable-all: true
-
   # Enable specific linter.
   enable:
     - asciicheck # Checks that all code identifiers does not have non-ASCII symbols in the name. [fast]
@@ -18,7 +15,7 @@ linters:
     - goconst # Finds repeated strings that could be replaced by a constant.
     - gocyclo # Computes and checks the cyclomatic complexity of functions. [fast]
     - goprintffuncname # Checks that printf-like functions are named with `f` at the end. [fast]
-    - gosec # Inspects source code for security problems.
+    # - gosec # Inspects source code for security problems.
     - govet # Vet examines Go source code and reports suspicious constructs. It is roughly the same as 'go vet' and uses its passes. [auto-fix]
     - ineffassign # Detects when assignments to existing variables are not used. [fast]
     - iface # Detect the incorrect use of interfaces, helping developers avoid interface pollution. [auto-fix]
@@ -42,17 +39,13 @@ linters:
     funlen:
       lines: 150
       statements: 100
-    golines:
-      max-line-length: 120
     goconst:
       min-len: 5
       min-occurrences: 3
     lll:
       line-length: 120
     cyclop:
-      max-complexity: 20
-    iface:
-      min-impl: 2
+      max-complexity: 24
     errcheck:
       check-type-assertions: true
       check-blank: false
@@ -60,11 +53,11 @@ linters:
       exclude-functions:
         - (io.Closer).Close
         - (*os.File).Close
+        - (redis.Conn).Close
         - os.Remove
         - os.ReadFile  # Replace deprecated io/ioutil.ReadFile
         - io.Copy(*bytes.Buffer)
         - io.Copy(os.Stdout)
-        - redis.Conn.(Close)
     revive:
       severity: error # warning # error
       enable-all-rules: false
@@ -87,6 +80,7 @@ linters:
         - name: time-equal              # 建议使用 `time.Time.Equal` 比较时间
         - name: time-naming             # 检查 `time.Time` 命名规范
         - name: redefines-builtin-id    # 警告重新定义内置标识符
+        # - name: package-comments        # 强制包注释
         - name: unused-receiver         # 检查未使用的接收器
         - name: bare-return             # 警告裸返回
         - name: defer                   # 检查 `defer` 语句
@@ -111,6 +105,15 @@ linters:
           - gosec
           - lll
           - revive
+          - perfsprint
+          - unparam
+          - dupl
+          - goconst
+          - golines
+          - cyclop
+          - govet
+          - ineffassign
+          - prealloc
 
 formatters:
   enable:

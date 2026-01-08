@@ -10,8 +10,7 @@ GOLINT := golangci-lint
 
 # Project parameters
 BIN_DIR := bin
-CMD_DIR := cmd
-TARGETS := $(notdir $(wildcard $(CMD_DIR)/*))
+BINARY_NAME := template-go
 PKG_LIST := $(shell $(GOCMD) list ./... | grep -v /vendor/)
 
 # Build flags
@@ -21,49 +20,50 @@ BUILD_TIME := $(shell date -u '+%Y-%m-%d %H:%M:%S')
 # Debug configuration
 DEBUG ?= false
 ifeq ($(DEBUG),true)
-    LDFLAGS := -X 'master.Version=$(VERSION)' -X 'master.BuildTime=$(BUILD_TIME)'
-    GOBUILD := $(GOBUILD) -gcflags="all=-N -l"
+    LDFLAGS := -X 'main.Version=$(VERSION)' -X 'main.BuildTime=$(BUILD_TIME)'
+    GCFLAGS := -gcflags="all=-N -l"
 else
-    LDFLAGS := -w -s -X 'master.Version=$(VERSION)' -X 'master.BuildTime=$(BUILD_TIME)'
+    LDFLAGS := -w -s -X 'main.Version=$(VERSION)' -X 'main.BuildTime=$(BUILD_TIME)'
+    GCFLAGS :=
 endif
 
-CGO_FLAGS := CGO_ENABLED=1 # CGO_CXXFLAGS='-D_GLIBCXX_USE_CXX11_ABI=0'
+CGO_FLAGS := CGO_ENABLED=1
 
 # Colors for pretty printing
 GREEN := \033[0;32m
 BLUE := \033[0;34m
+YELLOW := \033[0;33m
 NC := \033[0m # No Color
 
 # Targets
-.PHONY: all clean test lint tidy help debug $(TARGETS)
+.PHONY: all build compile debug test fumpt lint tidy clean setup-hooks release run help
 
 # Default target
 all: build
-build: clean tidy fumpt lint $(TARGETS)
+
+# Full build pipeline
+build: clean tidy fumpt lint $(BIN_DIR)/$(BINARY_NAME)
+	@printf "$(GREEN)✓ Build completed successfully!$(NC)\n"
+
+# Quick build without linting
+compile: tidy $(BIN_DIR)/$(BINARY_NAME)
+	@printf "$(GREEN)✓ Compile completed!$(NC)\n"
 
 # Debug build target
 debug:
-	@echo "Building in DEBUG mode..."
-	@$(MAKE) DEBUG=true build
+	@printf "$(YELLOW)Building in DEBUG mode...$(NC)\n"
+	@$(MAKE) DEBUG=true $(BIN_DIR)/$(BINARY_NAME)
 
-# For GDP without golangci-lint
-compile: tidy $(TARGETS)
-
-# Build each target
-define build_target
-$(BIN_DIR)/$(1): $$(shell find $(CMD_DIR)/$(1) -name '*.go')
-	@printf "$(BLUE)Building $$@...$(NC)\n"
+# Build binary
+$(BIN_DIR)/$(BINARY_NAME): $(shell find . -name '*.go' -not -path './vendor/*')
+	@printf "$(BLUE)Building $(BINARY_NAME) [DEBUG=$(DEBUG)]...$(NC)\n"
 	@mkdir -p $(BIN_DIR)
-	$(CGO_FLAGS) $(GOBUILD) -ldflags "$(LDFLAGS)" -o $$@ ./$(CMD_DIR)/$(1)
-endef
+	@$(CGO_FLAGS) $(GOBUILD) $(GCFLAGS) -ldflags "$(LDFLAGS)" -o $@ .
 
-# Generate build rules for each target
-$(foreach target,$(TARGETS),$(eval $(call build_target,$(target))))
-
-# Shortcut targets
-$(TARGETS):
-	@echo "Building with $(GREEN)DEBUG=$(DEBUG)$(NC)"
-	@$(MAKE) $(BIN_DIR)/$@
+# Run the application
+run: $(BIN_DIR)/$(BINARY_NAME)
+	@printf "$(BLUE)Running $(BINARY_NAME)...$(NC)\n"
+	@./$(BIN_DIR)/$(BINARY_NAME)
 
 test:
 	@printf "$(BLUE)Running tests ...$(NC)\n"
@@ -88,32 +88,28 @@ clean:
 	@rm -rf $(BIN_DIR)/* *.pid *.perf
 
 help:
-	@echo "Available targets:"
-	@echo "  all (build) : Build the program in release mode (default)"
-	@echo "  debug       : Build the program in debug mode with full debug information"
-	@echo "  test        : Run all tests"
-	@echo "  fumpt       : Run gofumpt to format and simplify code"
-	@echo "  lint        : Run golangci-lint for code quality checks"
-	@echo "  tidy        : Tidy and verify go modules dependencies"
-	@echo "  clean       : Remove object files and binaries"
-	@echo "  compile     : Quick build without linting (for GDP)"
-	@echo "  help        : Display this help message"
+	@echo "$(BLUE)Available targets:$(NC)"
+	@echo "  $(GREEN)all (build)$(NC)  : Full build pipeline (clean + tidy + fumpt + lint + compile)"
+	@echo "  $(GREEN)compile$(NC)      : Quick build without linting (tidy + compile only)"
+	@echo "  $(GREEN)debug$(NC)        : Build with debug symbols (no optimizations)"
+	@echo "  $(GREEN)run$(NC)          : Build and run the application"
+	@echo "  $(GREEN)test$(NC)         : Run all tests"
+	@echo "  $(GREEN)fumpt$(NC)        : Format code with gofumpt"
+	@echo "  $(GREEN)lint$(NC)         : Run golangci-lint for code quality checks"
+	@echo "  $(GREEN)tidy$(NC)         : Tidy and verify go modules"
+	@echo "  $(GREEN)clean$(NC)        : Remove binaries and clean build cache"
+	@echo "  $(GREEN)help$(NC)         : Display this help message"
 	@echo ""
-	@echo "Build modes:"
-	@echo "  Release mode (default):"
-	@echo "    - Optimized binary"
-	@echo "    - Stripped debug information"
-	@echo "    - Smaller binary size"
-	@echo "  Debug mode (make debug):"
-	@echo "    - Full debug information"
-	@echo "    - No compiler optimizations"
-	@echo "    - Suitable for debugging"
+	@echo "$(BLUE)Build modes:$(NC)"
+	@echo "  Release (default): Optimized + stripped symbols → smaller binary"
+	@echo "  Debug mode:        Full debug info + no optimizations → for debugging"
 	@echo ""
-	@echo "Environment variables:"
-	@echo "  DEBUG       : Set to 'true' for debug builds (default: false)"
-	@echo ""
-	@echo "For more information about a specific target, run:"
-	@echo "  make help-<target>"
+	@echo "$(BLUE)Examples:$(NC)"
+	@echo "  make              # Full build in release mode"
+	@echo "  make debug        # Build in debug mode"
+	@echo "  make compile      # Quick compile without linting"
+	@echo "  make run          # Build and run"
+	@echo "  make DEBUG=true   # Build with debug flag"
 
 # Debugging
 print-%:
