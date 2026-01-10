@@ -28,9 +28,12 @@ logs/
 
 # IDE
 .idea/
+.vscode/
+.claude/
 *.swp
 *.swo
 *~
+CLAUDE.md
 
 # OS
 .DS_Store

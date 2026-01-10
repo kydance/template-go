@@ -3,7 +3,7 @@ KLOG:
   prefix: "ZIWI_"
   directory: "/Users/kyden/git-space/template-go/logs"
   filename: "ziwi"
-  level: "info"
+  level: "debug"
   format: "console"
   time_layout: "2006-01-02 15:04:05.000"
 
@@ -21,7 +21,7 @@ KLOG:
   console_output: true
 
   # Sampling (reduces log volume in high-traffic scenarios)
-  enable_sampling: true
+  enable_sampling: false
   sample_initial: 100
   sample_thereafter: 1000
 

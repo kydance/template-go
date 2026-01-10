@@ -7,11 +7,17 @@ GOGET := $(GOCMD) get
 GOMOD := $(GOCMD) mod
 GOFUMPT := gofumpt
 GOLINT := golangci-lint
+PROTOC := protoc
 
 # Project parameters
 BIN_DIR := bin
 BINARY_NAME := template-go
 PKG_LIST := $(shell $(GOCMD) list ./... | grep -v /vendor/)
+
+# Proto parameters
+PROTO_DIR := api
+PROTO_OUT := internal/pb
+PROTO_FILES := $(wildcard $(PROTO_DIR)/*.proto)
 
 # Build flags
 VERSION := $(shell git describe --tags --always --dirty)
@@ -36,21 +42,21 @@ YELLOW := \033[0;33m
 NC := \033[0m # No Color
 
 # Targets
-.PHONY: all build compile debug test fumpt lint tidy clean setup-hooks release run help
+.PHONY: all build compile debug test fumpt lint tidy clean setup-hooks release run help proto proto-clean
 
 # Default target
 all: build
 
 # Full build pipeline
-build: clean tidy fumpt lint $(BIN_DIR)/$(BINARY_NAME)
+build: clean proto tidy fumpt lint $(BIN_DIR)/$(BINARY_NAME)
 	@printf "$(GREEN)✓ Build completed successfully!$(NC)\n"
 
 # Quick build without linting
-compile: tidy $(BIN_DIR)/$(BINARY_NAME)
+compile: proto tidy $(BIN_DIR)/$(BINARY_NAME)
 	@printf "$(GREEN)✓ Compile completed!$(NC)\n"
 
 # Debug build target
-debug:
+debug: proto
 	@printf "$(YELLOW)Building in DEBUG mode...$(NC)\n"
 	@$(MAKE) DEBUG=true $(BIN_DIR)/$(BINARY_NAME)
 
@@ -82,21 +88,36 @@ tidy:
 	@$(GOMOD) tidy
 	@$(GOMOD) verify
 
-clean:
+# Generate protobuf Go files
+proto:
+	@printf "$(BLUE)Generating protobuf files ...$(NC)\n"
+	@mkdir -p $(PROTO_OUT)
+	@$(PROTOC) --go_out=$(PROTO_OUT) --go_opt=paths=source_relative \
+		-I$(PROTO_DIR) $(PROTO_FILES)
+	@printf "$(GREEN)✓ Protobuf generation completed!$(NC)\n"
+
+# Clean generated protobuf files
+proto-clean:
+	@printf "$(BLUE)Cleaning generated protobuf files ...$(NC)\n"
+	@rm -f $(PROTO_OUT)/*.pb.go
+
+clean: proto-clean
 	@printf "$(BLUE)Cleaning up ...$(NC)\n"
 	@$(GOCLEAN)
 	@rm -rf $(BIN_DIR)/* *.pid *.perf
 
 help:
 	@echo "$(BLUE)Available targets:$(NC)"
-	@echo "  $(GREEN)all (build)$(NC)  : Full build pipeline (clean + tidy + fumpt + lint + compile)"
-	@echo "  $(GREEN)compile$(NC)      : Quick build without linting (tidy + compile only)"
+	@echo "  $(GREEN)all (build)$(NC)  : Full build pipeline (clean + proto + tidy + fumpt + lint + compile)"
+	@echo "  $(GREEN)compile$(NC)      : Quick build without linting (proto + tidy + compile only)"
 	@echo "  $(GREEN)debug$(NC)        : Build with debug symbols (no optimizations)"
 	@echo "  $(GREEN)run$(NC)          : Build and run the application"
 	@echo "  $(GREEN)test$(NC)         : Run all tests"
 	@echo "  $(GREEN)fumpt$(NC)        : Format code with gofumpt"
 	@echo "  $(GREEN)lint$(NC)         : Run golangci-lint for code quality checks"
 	@echo "  $(GREEN)tidy$(NC)         : Tidy and verify go modules"
+	@echo "  $(GREEN)proto$(NC)        : Generate Go code from proto files (api/*.proto → internal/pb/)"
+	@echo "  $(GREEN)proto-clean$(NC)  : Remove generated protobuf files"
 	@echo "  $(GREEN)clean$(NC)        : Remove binaries and clean build cache"
 	@echo "  $(GREEN)help$(NC)         : Display this help message"
 	@echo ""

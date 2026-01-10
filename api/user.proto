@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package api;
+option go_package = "../internal/pb/";
+
+message UserRequest {
+    string name = 1;
+}
+
+message UserResponse {
+    int32 id = 1;
+    string name = 2;
+    string email = 3;
+}
