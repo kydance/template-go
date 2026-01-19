@@ -4,7 +4,6 @@ go 1.25
 
 require (
 	github.com/gin-gonic/gin v1.11.0
-	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/kydenul/log v1.6.0
 	github.com/redis/go-redis/v9 v9.17.2
 	github.com/spf13/viper v1.21.0

@@ -30,6 +30,7 @@ func main() {
 		ratelimit.WithGlobalQPS(300),
 		ratelimit.WithIPRatePerMinute(60*200),
 		ratelimit.WithUserRatePerMinute(60*200),
+		ratelimit.WithEnableMetrics(true), // 启用 metrics 监控
 	)
 
 	r := gin.New()

@@ -8,7 +8,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/go-redis/redis_rate/v10"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -29,18 +28,31 @@ type config struct {
 
 	// 用户限流配置, 单个用户每分钟请求数
 	userRatePerMinute int
+
+	// 策略启用配置
+	enableGlobalRateLimit bool // 是否启用全局限流
+	enableIPRateLimit     bool // 是否启用 IP 限流
+	enableUserRateLimit   bool // 是否启用用户限流
+
+	enableHealthCheck bool // 是否启用 Redis 健康检查
+	enableMetrics     bool // 是否启用 Metrics 监控
 }
 
 // defaultConfig 返回默认配置
 func defaultConfig() *config {
 	return &config{
-		redisTimeout:       100 * time.Millisecond,
-		fallbackAllow:      true,
-		fallbackRemaining:  999,
-		fallbackRetryAfter: time.Second,
-		globalQPS:          1000,
-		ipRatePerMinute:    100,
-		userRatePerMinute:  60,
+		redisTimeout:          100 * time.Millisecond,
+		fallbackAllow:         true,
+		fallbackRemaining:     999,
+		fallbackRetryAfter:    time.Second,
+		globalQPS:             1000,
+		ipRatePerMinute:       100,
+		userRatePerMinute:     60,
+		enableGlobalRateLimit: true, // 默认全部启用
+		enableIPRateLimit:     true,
+		enableUserRateLimit:   true,
+		enableHealthCheck:     true,  // 默认启用健康检查
+		enableMetrics:         false, // 默认不启用监控（避免性能开销）
 	}
 }
 
@@ -74,8 +86,28 @@ func WithUserRatePerMinute(rate int) Option {
 	return func(c *config) { c.userRatePerMinute = rate }
 }
 
+func WithEnableGlobalRateLimit(enable bool) Option {
+	return func(c *config) { c.enableGlobalRateLimit = enable }
+}
+
+func WithEnableIPRateLimit(enable bool) Option {
+	return func(c *config) { c.enableIPRateLimit = enable }
+}
+
+func WithEnableUserRateLimit(enable bool) Option {
+	return func(c *config) { c.enableUserRateLimit = enable }
+}
+
+func WithEnableHealthCheck(enable bool) Option {
+	return func(c *config) { c.enableHealthCheck = enable }
+}
+
+func WithEnableMetrics(enable bool) Option {
+	return func(c *config) { c.enableMetrics = enable }
+}
+
 type RateLimiter struct {
-	limiter *redis_rate.Limiter
+	limiter *Limiter
 	rdb     redis.UniversalClient
 	config  *config
 }
@@ -88,7 +120,7 @@ func NewRateLimiter(rdb redis.UniversalClient, opts ...Option) *RateLimiter {
 	}
 
 	return &RateLimiter{
-		limiter: redis_rate.NewLimiter(rdb),
+		limiter: NewLimiter(rdb),
 		rdb:     rdb,
 		config:  cfg,
 	}
@@ -97,19 +129,20 @@ func NewRateLimiter(rdb redis.UniversalClient, opts ...Option) *RateLimiter {
 func (r *RateLimiter) AllowWithFallback(
 	ctx context.Context,
 	key string,
-	limit redis_rate.Limit,
-) (*redis_rate.Result, error) {
+	limit Limit,
+) (*Result, error) {
 	// Set timeout
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, r.config.redisTimeout)
 	defer cancel()
 
-	// Check health
-	if err := r.healthCheck(ctxWithTimeout); err != nil {
-		log.Printf("Redis check health fail: %v, use fallback", err)
-		return r.fallback(), nil
+	// Check health if enabled
+	if r.config.enableHealthCheck {
+		if err := r.healthCheck(ctxWithTimeout); err != nil {
+			log.Printf("Redis check health fail: %v, use fallback", err)
+			return r.fallback(), nil
+		}
 	}
 
-	//
 	res, err := r.limiter.Allow(ctxWithTimeout, key, limit)
 	if err != nil {
 		log.Printf("Redis rate limit fail: %v, use fallback", err)
@@ -120,20 +153,29 @@ func (r *RateLimiter) AllowWithFallback(
 }
 
 // healthCheck check redis health
-func (r *RateLimiter) healthCheck(ctx context.Context) error { return r.rdb.Ping(ctx).Err() }
+func (r *RateLimiter) healthCheck(ctx context.Context) error {
+	err := r.rdb.Ping(ctx).Err()
+	if err != nil {
+		log.Printf("Redis health check fail: %v", err)
+		return err
+	}
+
+	log.Println("Redis health check success")
+	return nil
+}
 
 // fallback
-func (r *RateLimiter) fallback() *redis_rate.Result {
+func (r *RateLimiter) fallback() *Result {
 	// Fallback => Allow
 	if r.config.fallbackAllow {
-		return &redis_rate.Result{
+		return &Result{
 			Allowed:   1,
 			Remaining: r.config.fallbackRemaining, // Fake Value -> Fallback
 		}
 	}
 
 	// Fallback => Deny
-	return &redis_rate.Result{
+	return &Result{
 		Allowed:    0,
 		Remaining:  0,
 		RetryAfter: r.config.fallbackRetryAfter,
@@ -144,29 +186,60 @@ func (r *RateLimiter) CheckMultiDimensional(
 	ctx context.Context,
 	userID, userIP, endpoint string,
 ) (bool, string) {
-	// Golbal rate limit => the QPS of all cluster
-	globalKey := "global:ratelimit:" + endpoint
-	res, err := r.AllowWithFallback(ctx, globalKey, redis_rate.PerSecond(r.config.globalQPS))
-	if err != nil || res.Allowed == 0 {
-		return false, "GlobalRateLimt"
+	// Global rate limit => the QPS of all cluster
+	if r.config.enableGlobalRateLimit {
+		globalKey := "global:ratelimit:" + endpoint
+		res, err := r.AllowWithFallback(ctx, globalKey, PerSecond(r.config.globalQPS))
+
+		if err != nil && r.config.enableMetrics {
+			metrics.redisErrors.Add(1)
+		}
+
+		isFallback := res.Remaining == r.config.fallbackRemaining
+		allowed := res.Allowed > 0
+		r.recordMetrics("global", allowed, isFallback)
+
+		if err != nil || !allowed {
+			return false, "GlobalRateLimit"
+		}
 	}
 
 	// IP Rate Limit => the QPS of single IP
-	ipKey := "ratelimit:ip:" + userIP
-	res, err = r.AllowWithFallback(ctx, ipKey, redis_rate.PerMinute(r.config.ipRatePerMinute))
-	if err != nil || res.Allowed == 0 {
-		return false, "IPRateLimit"
+	if r.config.enableIPRateLimit {
+		ipKey := "ratelimit:ip:" + userIP
+		res, err := r.AllowWithFallback(ctx, ipKey, PerMinute(r.config.ipRatePerMinute))
+
+		if err != nil && r.config.enableMetrics {
+			metrics.redisErrors.Add(1)
+		}
+
+		isFallback := res.Remaining == r.config.fallbackRemaining
+		allowed := res.Allowed > 0
+		r.recordMetrics("ip", allowed, isFallback)
+
+		if err != nil || !allowed {
+			return false, "IPRateLimit"
+		}
 	}
 
 	// User rate limit => the QPS of single user
-	if userID != "" {
+	if r.config.enableUserRateLimit && userID != "" {
 		userKey := "ratelimit:user:" + userID + ":" + endpoint
-		res, err = r.AllowWithFallback(
+		res, err := r.AllowWithFallback(
 			ctx,
 			userKey,
-			redis_rate.PerMinute(r.config.userRatePerMinute),
+			PerMinute(r.config.userRatePerMinute),
 		)
-		if err != nil || res.Allowed == 0 {
+
+		if err != nil && r.config.enableMetrics {
+			metrics.redisErrors.Add(1)
+		}
+
+		isFallback := res.Remaining == r.config.fallbackRemaining
+		allowed := res.Allowed > 0
+		r.recordMetrics("user", allowed, isFallback)
+
+		if err != nil || !allowed {
 			return false, "UserRateLimit"
 		}
 	}
@@ -174,61 +247,111 @@ func (r *RateLimiter) CheckMultiDimensional(
 	return true, ""
 }
 
+type DimensionMetrics struct {
+	totalRequests    atomic.Int64
+	allowedRequests  atomic.Int64
+	rejectedRequests atomic.Int64
+}
+
 type RateLimitMetrics struct {
-	totalRequests     atomic.Int64
-	allowedRequests   atomic.Int64
-	rejectedRequests  atomic.Int64
+	global            DimensionMetrics
+	ip                DimensionMetrics
+	user              DimensionMetrics
 	redisErrors       atomic.Int64
 	fallbackActivated atomic.Int64
 }
 
 var metrics RateLimitMetrics
 
-func (r *RateLimiter) CheckWithMetrics(
-	ctx context.Context,
-	key string,
-	limit redis_rate.Limit,
-) (*redis_rate.Result, error) {
-	metrics.totalRequests.Add(1)
-
-	res, err := r.AllowWithFallback(ctx, key, limit)
-	if err != nil {
-		metrics.redisErrors.Add(1)
+// recordMetrics 记录维度指标
+func (r *RateLimiter) recordMetrics(dimension string, allowed, isFallback bool) {
+	if !r.config.enableMetrics {
+		return
 	}
 
-	if res.Allowed > 0 {
-		metrics.allowedRequests.Add(1)
+	var dim *DimensionMetrics
+	switch dimension {
+	case "global":
+		dim = &metrics.global
+	case "ip":
+		dim = &metrics.ip
+	case "user":
+		dim = &metrics.user
+	default:
+		return
+	}
+
+	dim.totalRequests.Add(1)
+	if allowed {
+		dim.allowedRequests.Add(1)
 	} else {
-		metrics.rejectedRequests.Add(1)
+		dim.rejectedRequests.Add(1)
 	}
 
-	// Check if fallback is activated
-	if res.Remaining == r.config.fallbackRemaining {
+	if isFallback {
 		metrics.fallbackActivated.Add(1)
 	}
-
-	return res, err
 }
 
 // MetricsHandler export Prometheus metrics
 func MetricsHandler(w http.ResponseWriter, _ *http.Request) {
-	_, _ = fmt.Fprintf(w, "# HELP ratelimit_total_requests Total rate limit checks\n")
+	// Global dimension metrics
+	_, _ = fmt.Fprintf(w, "# HELP ratelimit_total_requests Total rate limit checks by dimension\n")
 	_, _ = fmt.Fprintf(w, "# TYPE ratelimit_total_requests counter\n")
-	_, _ = fmt.Fprintf(w, "ratelimit_total_requests %d\n", metrics.totalRequests.Load())
+	_, _ = fmt.Fprintf(w, "ratelimit_total_requests{dimension=\"global\"} %d\n",
+		metrics.global.totalRequests.Load())
+	_, _ = fmt.Fprintf(w, "ratelimit_total_requests{dimension=\"ip\"} %d\n",
+		metrics.ip.totalRequests.Load())
+	_, _ = fmt.Fprintf(w, "ratelimit_total_requests{dimension=\"user\"} %d\n",
+		metrics.user.totalRequests.Load())
 
-	_, _ = fmt.Fprintf(w, "# HELP ratelimit_allowed_requests Allowed requests\n")
+	_, _ = fmt.Fprintf(w, "# HELP ratelimit_allowed_requests Allowed requests by dimension\n")
 	_, _ = fmt.Fprintf(w, "# TYPE ratelimit_allowed_requests counter\n")
-	_, _ = fmt.Fprintf(w, "ratelimit_allowed_requests %d\n", metrics.allowedRequests.Load())
+	_, _ = fmt.Fprintf(w, "ratelimit_allowed_requests{dimension=\"global\"} %d\n",
+		metrics.global.allowedRequests.Load())
+	_, _ = fmt.Fprintf(
+		w,
+		"ratelimit_allowed_requests{dimension=\"ip\"} %d\n",
+		metrics.ip.allowedRequests.Load(),
+	)
+	_, _ = fmt.Fprintf(
+		w,
+		"ratelimit_allowed_requests{dimension=\"user\"} %d\n",
+		metrics.user.allowedRequests.Load(),
+	)
 
-	_, _ = fmt.Fprintf(w, "# HELP ratelimit_rejected_requests Rejected requests\n")
+	_, _ = fmt.Fprintf(
+		w,
+		"# HELP ratelimit_rejected_requests Rejected requests by dimension\n",
+	)
 	_, _ = fmt.Fprintf(w, "# TYPE ratelimit_rejected_requests counter\n")
-	_, _ = fmt.Fprintf(w, "ratelimit_rejected_requests %d\n", metrics.rejectedRequests.Load())
+	_, _ = fmt.Fprintf(
+		w,
+		"ratelimit_rejected_requests{dimension=\"global\"} %d\n",
+		metrics.global.rejectedRequests.Load(),
+	)
+	_, _ = fmt.Fprintf(
+		w,
+		"ratelimit_rejected_requests{dimension=\"ip\"} %d\n",
+		metrics.ip.rejectedRequests.Load(),
+	)
+	_, _ = fmt.Fprintf(
+		w,
+		"ratelimit_rejected_requests{dimension=\"user\"} %d\n",
+		metrics.user.rejectedRequests.Load(),
+	)
 
+	// Redis errors (global counter)
 	_, _ = fmt.Fprintf(w, "# HELP ratelimit_redis_errors Redis errors\n")
 	_, _ = fmt.Fprintf(w, "# TYPE ratelimit_redis_errors counter\n")
 	_, _ = fmt.Fprintf(w, "ratelimit_redis_errors %d\n", metrics.redisErrors.Load())
 
+	// Fallback activations (global counter)
 	_, _ = fmt.Fprintf(w, "# HELP ratelimit_fallback_activated Fallback activations\n")
 	_, _ = fmt.Fprintf(w, "# TYPE ratelimit_fallback_activated counter\n")
-	_, _ = fmt.Fprintf(w, "ratelimit_fallback_activated %d\n", metrics.fallbackActivated.Load())
+	_, _ = fmt.Fprintf(
+		w,
+		"ratelimit_fallback_activated %d\n",
+		metrics.fallbackActivated.Load(),
+	)
 }
